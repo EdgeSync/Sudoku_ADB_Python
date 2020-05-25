@@ -3,48 +3,130 @@ from PIL import Image
 import time
 import pytesseract
 import io
+import numpy as np
 
 pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
 
-## Default is "127.0.0.1" and 5037
-# client = Client(host="127.0.0.1", port=5037)
-# device = client.devices()[0]
-#
-# screenshot = device.screencap()
-# with open("screen.png", "wb") as f:
-#     f.write(screenshot)
-# f.close()
+class Solver:
+    def __init__(self):
+        self.all_grids = []
 
-sudoku_boundary = [18, 281, 1062, 1327]
+        # Default is "127.0.0.1" and 5037
+        client = Client(host="127.0.0.1", port=5037)
+        self.device = client.devices()[0]
 
-master = Image.open("screen.png")
-im = master.crop(sudoku_boundary)
-im.save('sudoku.png', 'PNG')
+    def get_screen(self):
+        screenshot = self.device.screencap()
+        with open("screen.png", "wb") as f:
+            f.write(screenshot)
+        f.close()
 
-box_coord = {"1": [0, 0, 345, 345], "2": [352, 0, 690, 345], "3": [700, 0, 1035, 345],
-             "4": [0, 350, 300, 690], "5": [352, 352, 690, 690], "6": [700, 352, 1035, 690],
-             "7": [0, 704, 345, 1035], "8": [352, 704, 690, 1035], "9": [700, 704, 1035, 1035]}
+    def get_sudoku_grid(self):
+        sudoku_boundary = [18, 281, 1062, 1327]
+        master = Image.open("screen.png")
+        im = master.crop(sudoku_boundary)
+        im.save('sudoku.png', 'PNG')
 
-master = Image.open("sudoku.png")
-for i in range(1, 2):
-    im = master.crop(box_coord[str(i)])
-    # im.show()
+        line_coord = {"1": [0, 4, 1044, 110],
+                      "2": [0, 120, 1044, 226],
+                      "3": [0, 236, 1044, 342],
+                      "4": [0, 352, 1044, 458],
+                      "5": [0, 468, 1044, 574],
+                      "6": [0, 584, 1044, 690],
+                      "7": [0, 700, 1044, 806],
+                      "8": [0, 816, 1044, 922],
+                      "9": [0, 932, 1044, 1038]}
 
-    im.save('box.png', 'PNG')
-    image = Image.open('box.png')
-    box_coord = {"1": [20, 12, 100, 100], "2": [120, 8, 210, 103], "3": [250, 8, 325, 100],
-                 "4": [20, 135, 100, 210], "5": [120, 130, 220, 220], "6": [240, 130, 340, 220],
-                 "7": [10, 252, 110, 330], "8": [120, 252, 220, 330], "9": [240, 252, 340, 330]}
+        master = Image.open("sudoku.png")
+        for i in range(1, 10):
+            grid = []
+            im = master.crop(line_coord[str(i)])
+            im.save('box.png', 'PNG')
+            # im.show()
+            image = Image.open('box.png')
+            num_coord = {"1": [10, 5, 110, 105], "2": [125, 5, 220, 105], "3": [235, 5, 335, 105],
+                         "4": [355, 5, 445, 105], "5": [475, 5, 565, 105], "6": [585, 5, 685, 105],
+                         "7": [705, 5, 795, 105], "8": [825, 5, 915, 105], "9": [935, 5, 1035, 105]}
 
-    for i in range(2, 3):
-        im2 = image.crop(box_coord[str(i)])
-        im2.show()
-        # time.sleep(1)
-        imgByteArr = io.BytesIO()
-        im2.save(imgByteArr, format='PNG')
-        imgByteArr = imgByteArr.getvalue()
-        text = pytesseract.image_to_string(Image.open(io.BytesIO(imgByteArr)), lang='eng',
-               config='--psm 13 --oem 3 -c tessedit_char_whitelist=123456789')
+            for j in range(1, 10):
+                im2 = image.crop(num_coord[str(j)])
+                # im2.show()
+                # time.sleep(1)
+
+                imgByteArr = io.BytesIO()
+                im2.save(imgByteArr, format='PNG')
+                imgByteArr = imgByteArr.getvalue()
+                text = pytesseract.image_to_string(Image.open(io.BytesIO(imgByteArr)), config='--psm 13 --oem 0 -c tessedit_char_whitelist=123456789')
+
+                try:
+                    text = int(text)
+                except:
+                    text = 0
+
+                grid.append(text)
+            print("Row {} Done!".format(i))
+            self.all_grids.append(grid)
+
+        # print(self.all_grids)
+        print("GOT SUDOKU GRID")
+
+    def find_empty(self):
+        for i in range(len(self.all_grids)):
+            for j in range(len(self.all_grids[0])):
+                if self.all_grids[i][j] == 0:
+                    return i, j
+
+        return None
+
+    def valid(self, num, pos):
+        # check row
+        for i in range(len(self.all_grids[0])):
+            if self.all_grids[pos[0]][i] == num and pos[1] != i:
+                return False
+
+        # check column
+        for i in range(len(self.all_grids[0])):
+            if self.all_grids[i][pos[1]] == num and pos[0] != i:
+                return False
+
+        box_x = pos[1] // 3
+        box_y = pos[0] // 3
+
+        for i in range(box_y * 3, box_y * 3 + 3):
+            for j in range(box_x * 3, box_x * 3 + 3):
+                if self.all_grids[i][j] == num and (i, j) != pos:
+                    return False
+
+        return True
+
+    def solve(self):
+        find = self.find_empty()
+        if not find:
+            return True
+        else:
+            row, col = find
+
+        for i in range(1, 10):
+            if self.valid(i, (row, col)):
+                self.all_grids[row][col] = i
+
+                if self.solve():
+                    return True
+
+                self.all_grids[row][col] = 0
+
+    def enter_solution(self):
+        my = ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
+        box_coord = {}
 
 
-        print(text)
+
+def main():
+    s = Solver()
+    # s.get_screen()
+    s.get_sudoku_grid()
+    s.solve()
+    print("="*32 + "\nSOLVED\n" + "="*32)
+    print(np.matrix(s.all_grids))
+if __name__ == "__main__":
+    main()
