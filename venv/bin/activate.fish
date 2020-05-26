@@ -29,7 +29,7 @@ end
 # unset irrelevant variables
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV "/home/chris/Documents/Sudoku_ADB_Python/venv"
+set -gx VIRTUAL_ENV "/home/chris/Documents/adb_stuff/venv"
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/bin" $PATH

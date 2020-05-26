@@ -10,7 +10,6 @@ pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
 class Solver:
     def __init__(self):
         self.all_grids = []
-
         # Default is "127.0.0.1" and 5037
         client = Client(host="127.0.0.1", port=5037)
         self.device = client.devices()[0]
@@ -50,9 +49,6 @@ class Solver:
 
             for j in range(1, 10):
                 im2 = image.crop(num_coord[str(j)])
-                # im2.show()
-                # time.sleep(1)
-
                 imgByteArr = io.BytesIO()
                 im2.save(imgByteArr, format='PNG')
                 imgByteArr = imgByteArr.getvalue()
@@ -64,18 +60,17 @@ class Solver:
                     text = 0
 
                 grid.append(text)
-            print("Row {} Done!".format(i))
+            # print("Row {} Done!".format(i))
             self.all_grids.append(grid)
 
         # print(self.all_grids)
-        print("GOT SUDOKU GRID")
+        # print("GOT SUDOKU GRID")
 
     def find_empty(self):
         for i in range(len(self.all_grids)):
             for j in range(len(self.all_grids[0])):
                 if self.all_grids[i][j] == 0:
                     return i, j
-
         return None
 
     def valid(self, num, pos):
@@ -112,21 +107,42 @@ class Solver:
 
                 if self.solve():
                     return True
-
                 self.all_grids[row][col] = 0
 
-    def enter_solution(self):
-        my = ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
-        box_coord = {}
 
+    def enter_answers(self):
+        pos = [0, 0]
+        for row in self.all_grids:
+            pos[0] = 0
+            for num in row:
+                self.enter_solution(num, pos)
+                pos[0] = pos[0]+1
+            pos[1] = pos[1]+1
+
+    def enter_solution(self, num, pos):
+        x = [78, 192, 309, 423, 543, 660, 765, 882, 1005]
+        y = [330, 456, 564, 696, 798, 912, 1029, 1155, 1266]
+        num_coords = {1: [87, 1680], 2: [195, 1680], 3: [318, 1680], 4: [429, 1680], 5: [543, 1680],
+                      6: [657, 1680], 7: [771, 1680], 8: [879, 1680], 9: [996, 1680]}
+
+        # print("Touching Pos: {} {}".format(x[pos[0]], y[pos[1]]))
+        self.device.shell("input touchscreen tap {} {}".format(x[pos[0]], y[pos[1]]))
+
+        # print("Pressing Num: {}".format(num))
+        self.device.shell("input touchscreen tap {} {}".format(num_coords[num][0], num_coords[num][1]))
 
 
 def main():
     s = Solver()
-    # s.get_screen()
+    s.get_screen()
+    print("=" * 32 + "\nEnumerating Sudoku Numbers...\n" + "=" * 32)
     s.get_sudoku_grid()
+    print("=" * 32 + "\nSolving Sudoku....\n" + "=" * 32)
     s.solve()
     print("="*32 + "\nSOLVED\n" + "="*32)
     print(np.matrix(s.all_grids))
+    print("=" * 32 + "\nInputting Answers...\n" + "=" * 32)
+    s.enter_answers()
+
 if __name__ == "__main__":
     main()
