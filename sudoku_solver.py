@@ -1,16 +1,16 @@
 from ppadb.client import Client
 from PIL import Image
-import time
 import pytesseract
 import io
 import numpy as np
+import time
 
 pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
 
 class Solver:
     def __init__(self):
+        self.empty_values = []
         self.all_grids = []
-        # Default is "127.0.0.1" and 5037
         client = Client(host="127.0.0.1", port=5037)
         self.device = client.devices()[0]
 
@@ -58,13 +58,13 @@ class Solver:
                     text = int(text)
                 except:
                     text = 0
-
                 grid.append(text)
-            # print("Row {} Done!".format(i))
             self.all_grids.append(grid)
 
-        # print(self.all_grids)
-        # print("GOT SUDOKU GRID")
+        for i in range(len(self.all_grids)):
+            for j in range(len(self.all_grids[0])):
+                if self.all_grids[i][j] == 0:
+                    self.empty_values.append([i, j])
 
     def find_empty(self):
         for i in range(len(self.all_grids)):
@@ -78,7 +78,6 @@ class Solver:
         for i in range(len(self.all_grids[0])):
             if self.all_grids[pos[0]][i] == num and pos[1] != i:
                 return False
-
         # check column
         for i in range(len(self.all_grids[0])):
             if self.all_grids[i][pos[1]] == num and pos[0] != i:
@@ -91,7 +90,6 @@ class Solver:
             for j in range(box_x * 3, box_x * 3 + 3):
                 if self.all_grids[i][j] == num and (i, j) != pos:
                     return False
-
         return True
 
     def solve(self):
@@ -109,27 +107,15 @@ class Solver:
                     return True
                 self.all_grids[row][col] = 0
 
-
-    def enter_answers(self):
-        pos = [0, 0]
-        for row in self.all_grids:
-            pos[0] = 0
-            for num in row:
-                self.enter_solution(num, pos)
-                pos[0] = pos[0]+1
-            pos[1] = pos[1]+1
-
-    def enter_solution(self, num, pos):
+    def enter_solution(self):
         x = [78, 192, 309, 423, 543, 660, 765, 882, 1005]
         y = [330, 456, 564, 696, 798, 912, 1029, 1155, 1266]
-        num_coords = {1: [87, 1680], 2: [195, 1680], 3: [318, 1680], 4: [429, 1680], 5: [543, 1680],
-                      6: [657, 1680], 7: [771, 1680], 8: [879, 1680], 9: [996, 1680]}
-
-        # print("Touching Pos: {} {}".format(x[pos[0]], y[pos[1]]))
-        self.device.shell("input touchscreen tap {} {}".format(x[pos[0]], y[pos[1]]))
-
-        # print("Pressing Num: {}".format(num))
-        self.device.shell("input touchscreen tap {} {}".format(num_coords[num][0], num_coords[num][1]))
+        nums = {1: 8, 2: 9, 3: 10, 4: 11, 5: 12, 6: 13, 7: 14, 8: 15, 9: 16}
+        for pos in self.empty_values:
+            a = pos[1]
+            b = pos[0]
+            num = self.all_grids[b][a]
+            self.device.shell("input touchscreen tap {} {} && input keyevent {}".format(x[pos[1]], y[pos[0]], nums[num]))
 
 
 def main():
@@ -142,7 +128,8 @@ def main():
     print("="*32 + "\nSOLVED\n" + "="*32)
     print(np.matrix(s.all_grids))
     print("=" * 32 + "\nInputting Answers...\n" + "=" * 32)
-    s.enter_answers()
+    s.enter_solution()
+
 
 if __name__ == "__main__":
     main()
